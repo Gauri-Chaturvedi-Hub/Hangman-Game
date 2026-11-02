@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f5f0e6">
+    <title>Hangman - Classic Word Game</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --page: #f5f0e6;
+            --surface: #fffdf8;
+            --ink: #263238;
+            --muted: #52616b;
+            --accent: #176b5b;
+            --accent-hover: #105447;
+            --accent-ink: #ffffff;
+            --border: #d7d0c3;
+            --wrong: #a73737;
+            --right: #176b5b;
+            --shadow: 0 12px 32px rgba(39, 43, 36, 0.1);
+            --focus: #ad4c00;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px;
+            background: var(--page);
+            color: var(--ink);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.5;
+        }
+
+        button {
+            font: inherit;
+        }
+
+        .page {
+            width: min(100%, 760px);
+            margin: 0 auto;
+        }
+
+        .top-link {
+            display: inline-block;
+            margin-bottom: 12px;
+            color: var(--accent);
+            font-weight: 650;
+            text-decoration-thickness: 2px;
+            text-underline-offset: 3px;
+        }
+
+        .top-link:focus-visible,
+        button:focus-visible {
+            outline: 3px solid var(--focus);
+            outline-offset: 3px;
+        }
+
+        header {
+            margin-bottom: 22px;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 7vw, 3rem);
+            line-height: 1.15;
+            letter-spacing: -0.035em;
+        }
+
+        .subtitle {
+            margin: 10px 0 0;
+            color: var(--muted);
+        }
+
+        .game {
+            padding: clamp(18px, 5vw, 36px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+        }
+
+        .game-status {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .status-chip {
+            padding: 7px 13px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .status-chip strong {
+            color: var(--ink);
+        }
+
+        .illustration {
+            display: block;
+            width: min(100%, 230px);
+            height: auto;
+            margin: 0 auto 8px;
+        }
+
+        .gallows {
+            fill: none;
+            stroke: var(--ink);
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 6;
+        }
+
+        .person {
+            fill: none;
+            stroke: var(--wrong);
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 5;
+            visibility: hidden;
+        }
+
+        .clue {
+            margin: 0;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .word {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: clamp(6px, 2vw, 12px);
+            min-height: 58px;
+            margin: 18px 0 20px;
+        }
+
+        .letter-slot {
+            display: grid;
+            width: clamp(28px, 8vw, 44px);
+            height: 48px;
+            place-items: center;
+            border-bottom: 3px solid var(--accent);
+            font-size: clamp(1.35rem, 5vw, 2rem);
+            font-weight: 750;
+            text-transform: uppercase;
+        }
+
+        .letter-slot.revealed {
+            color: var(--right);
+        }
+
+        .message {
+            min-height: 1.7em;
+            margin: 0 0 16px;
+            color: var(--muted);
+            font-weight: 650;
+            text-align: center;
+        }
+
+        .message[data-result="win"] {
+            color: var(--right);
+        }
+
+        .message[data-result="loss"] {
+            color: var(--wrong);
+        }
+
+        .keyboard {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 8px;
+            max-width: 540px;
+            margin: 0 auto;
+        }
+
+        .key {
+            min-width: 0;
+            min-height: 44px;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            background: var(--surface);
+            color: var(--ink);
+            cursor: pointer;
+            font-weight: 700;
+            transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+        }
+
+        .key:hover:not(:disabled) {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: var(--accent-ink);
+        }
+
+        .key:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+
+        .key.correct {
+            border-color: var(--right);
+            background: var(--right);
+            color: var(--accent-ink);
+        }
+
+        .key.incorrect {
+            border-color: var(--wrong);
+            background: var(--wrong);
+            color: #ffffff;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .new-game {
+            min-height: 46px;
+            padding: 10px 20px;
+            border: 0;
+            border-radius: 10px;
+            background: var(--accent);
+            color: var(--accent-ink);
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .new-game:hover {
+            background: var(--accent-hover);
+        }
+
+        .instructions {
+            margin: 18px 0 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+            text-align: center;
+        }
+
+        @media (max-width: 420px) {
+            body {
+                padding: 16px;
+            }
+
+            .game {
+                padding: 18px 12px;
+            }
+
+            .keyboard {
+                gap: 6px;
+            }
+
+            .key {
+                min-height: 40px;
+                border-radius: 7px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <a class="top-link" href="memory-game.html">← Memory Game</a>
+        <header>
+            <h1>Hangman</h1>
+            <p class="subtitle">Guess the hidden word before the drawing is complete.</p>
+        </header>
+
+        <section class="game" aria-label="Hangman game">
+            <div class="game-status" aria-label="Game progress">
+                <p class="status-chip">Wrong guesses: <strong class="wrong-count">0</strong> / 6</p>
+                <p class="status-chip">Wins: <strong class="wins-count">0</strong></p>
+            </div>
+
+            <svg class="illustration" viewBox="0 0 220 250" role="img" aria-labelledby="drawing-title drawing-description">
+                <title id="drawing-title">Hangman drawing</title>
+                <desc id="drawing-description">0 of 6 incorrect guesses.</desc>
+                <g class="gallows">
+                    <path d="M25 230h150M65 230V25h95v25M65 65l28-28" />
+                    <path d="M160 50v25" />
+                </g>
+                <circle class="person" data-part="0" cx="160" cy="93" r="18" />
+                <path class="person" data-part="1" d="M160 111v53" />
+                <path class="person" data-part="2" d="M160 124l-27 21" />
+                <path class="person" data-part="3" d="M160 124l27 21" />
+                <path class="person" data-part="4" d="M160 164l-24 34" />
+                <path class="person" data-part="5" d="M160 164l24 34" />
+            </svg>
+
+            <p class="clue">Category: <strong class="category"></strong> · Hint: <span class="hint"></span></p>
+            <div class="word" aria-label="Hidden word"></div>
+            <p class="message" role="status" aria-live="polite"></p>
+            <div class="keyboard" role="group" aria-label="Choose a letter"></div>
+
+            <div class="actions">
+                <button class="new-game" type="button">New word</button>
+            </div>
+            <p class="instructions">Choose a letter on screen or type it on your keyboard.</p>
+        </section>
+    </main>
+
+    <script>
+        const words = [
+            { word: 'apple', category: 'Food', hint: 'A crisp fruit that can be red or green' },
+            { word: 'bicycle', category: 'Things', hint: 'A two-wheeled ride powered by pedaling' },
+            { word: 'butterfly', category: 'Nature', hint: 'An insect with colorful wings' },
+            { word: 'chocolate', category: 'Food', hint: 'A sweet treat made from cocoa' },
+            { word: 'dinosaur', category: 'Animals', hint: 'An ancient animal often found in toy form' },
+            { word: 'elephant', category: 'Animals', hint: 'A large animal with a trunk' },
+            { word: 'firework', category: 'Celebrations', hint: 'A bright, sparkling display in the sky' },
+            { word: 'guitar', category: 'Music', hint: 'A string instrument you can strum' },
+            { word: 'jungle', category: 'Nature', hint: 'A thick tropical forest' },
+            { word: 'kangaroo', category: 'Animals', hint: 'An Australian animal that hops' },
+            { word: 'lemonade', category: 'Food', hint: 'A refreshing drink made with lemons' },
+            { word: 'marbles', category: 'Toys', hint: 'Small, colorful glass balls used in a classic game' },
+            { word: 'pancake', category: 'Food', hint: 'A flat breakfast treat cooked in a pan' },
+            { word: 'rainbow', category: 'Nature', hint: 'A colorful arc that can appear after rain' },
+            { word: 'skateboard', category: 'Sports', hint: 'A board with wheels you can ride' },
+            { word: 'strawberry', category: 'Food', hint: 'A red fruit with tiny seeds on the outside' },
+            { word: 'treasure', category: 'Adventure', hint: 'Valuable things hidden away, often in a chest' },
+            { word: 'volcano', category: 'Nature', hint: 'A mountain that can erupt with lava' },
+            { word: 'whistle', category: 'Sounds', hint: 'A high sound made by blowing air' },
+            { word: 'yo-yo', category: 'Toys', hint: 'A toy that goes up and down on a string' },
+            { word: 'airplane', category: 'Travel', hint: 'A flying vehicle with wings' },
+            { word: 'anchor', category: 'Things', hint: 'A heavy object that keeps a boat in place' },
+            { word: 'backpack', category: 'Things', hint: 'A bag carried over your shoulders' },
+            { word: 'balloon', category: 'Celebrations', hint: 'A colorful inflatable party decoration' },
+            { word: 'baseball', category: 'Sports', hint: 'A bat-and-ball game played on a diamond' },
+            { word: 'beach', category: 'Nature', hint: 'A sandy shore beside the sea' },
+            { word: 'boots', category: 'Clothing', hint: 'Sturdy footwear that covers your ankles' },
+            { word: 'castle', category: 'Places', hint: 'A fortified home for royalty in old stories' },
+            { word: 'cereal', category: 'Food', hint: 'A crunchy breakfast served with milk' },
+            { word: 'circus', category: 'Entertainment', hint: 'A show with acrobats, clowns, and performers' },
+            { word: 'compass', category: 'Adventure', hint: 'A tool that points the way north' },
+            { word: 'cupcake', category: 'Food', hint: 'A small frosted cake baked in a paper cup' },
+            { word: 'dolphin', category: 'Animals', hint: 'An intelligent sea mammal known for jumping' },
+            { word: 'dragon', category: 'Fantasy', hint: 'A mythical creature that may breathe fire' },
+            { word: 'flashlight', category: 'Things', hint: 'A handheld light for exploring the dark' },
+            { word: 'football', category: 'Sports', hint: 'An oval ball used in a popular team sport' },
+            { word: 'galaxy', category: 'Space', hint: 'A huge collection of stars and planets' },
+            { word: 'hamster', category: 'Animals', hint: 'A small, furry pet that likes to run on a wheel' },
+            { word: 'helmet', category: 'Clothing', hint: 'Protective gear worn on your head' },
+            { word: 'island', category: 'Nature', hint: 'Land completely surrounded by water' },
+            { word: 'koala', category: 'Animals', hint: 'An Australian tree-dweller that eats eucalyptus' },
+            { word: 'lighthouse', category: 'Places', hint: 'A tower that guides ships with a bright light' },
+            { word: 'microphone', category: 'Music', hint: 'A device that makes your voice louder' },
+            { word: 'mountain', category: 'Nature', hint: 'A very high landform with steep sides' },
+            { word: 'penguin', category: 'Animals', hint: 'A black-and-white bird that swims but cannot fly' },
+            { word: 'popcorn', category: 'Food', hint: 'A crunchy snack often eaten at the movies' },
+            { word: 'robot', category: 'Things', hint: 'A machine that can be programmed to do tasks' },
+            { word: 'sandwich', category: 'Food', hint: 'A meal with filling between slices of bread' },
+            { word: 'telescope', category: 'Space', hint: 'A tool for looking at distant stars' },
+            { word: 'turtle', category: 'Animals', hint: 'A reptile with a protective shell' }
+        ];
+
+        const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+        const maxWrongGuesses = 6;
+        const elements = {
+            category: document.querySelector('.category'),
+            hint: document.querySelector('.hint'),
+            word: document.querySelector('.word'),
+            keyboard: document.querySelector('.keyboard'),
+            message: document.querySelector('.message'),
+            wrongCount: document.querySelector('.wrong-count'),
+            winsCount: document.querySelector('.wins-count'),
+            drawingDescription: document.querySelector('#drawing-description'),
+            newGame: document.querySelector('.new-game')
+        };
+
+        let currentWord;
+        let guessedLetters = new Set();
+        let wrongGuesses = 0;
+        let wins = 0;
+        let previousWord;
+        let wordBag = [];
+        let gameOver = false;
+
+        function chooseWord() {
+            if (wordBag.length === 0) {
+                wordBag = [...words];
+                for (let index = wordBag.length - 1; index > 0; index--) {
+                    const swapIndex = Math.floor(Math.random() * (index + 1));
+                    [wordBag[index], wordBag[swapIndex]] = [wordBag[swapIndex], wordBag[index]];
+                }
+
+                const lastIndex = wordBag.length - 1;
+                if (wordBag.length > 1 && wordBag[lastIndex].word === previousWord) {
+                    [wordBag[0], wordBag[lastIndex]] = [wordBag[lastIndex], wordBag[0]];
+                }
+            }
+
+            return wordBag.pop();
+        }
+
+        function renderWord() {
+            elements.word.replaceChildren();
+            elements.word.setAttribute('aria-label', `Word with ${currentWord.word.length} letters`);
+
+            for (const letter of currentWord.word) {
+                const slot = document.createElement('span');
+                slot.className = 'letter-slot';
+                if (letter === '-') {
+                    slot.classList.add('revealed');
+                    slot.textContent = '-';
+                    slot.setAttribute('aria-label', 'hyphen');
+                } else if (guessedLetters.has(letter) || gameOver) {
+                    slot.classList.add('revealed');
+                    slot.textContent = letter;
+                    slot.setAttribute('aria-label', letter);
+                } else {
+                    slot.textContent = '_';
+                    slot.setAttribute('aria-label', 'hidden letter');
+                }
+                elements.word.appendChild(slot);
+            }
+        }
+
+        function renderKeyboard() {
+            const focusedKey = elements.keyboard.contains(document.activeElement)
+                ? document.activeElement.dataset.letter
+                : null;
+            elements.keyboard.replaceChildren();
+            for (const letter of alphabet) {
+                const key = document.createElement('button');
+                key.className = 'key';
+                key.type = 'button';
+                key.textContent = letter.toUpperCase();
+                key.dataset.letter = letter;
+                key.setAttribute('aria-label', `Guess ${letter}`);
+                key.disabled = gameOver || guessedLetters.has(letter);
+                if (guessedLetters.has(letter)) {
+                    key.classList.add(currentWord.word.includes(letter) ? 'correct' : 'incorrect');
+                    key.setAttribute('aria-pressed', 'true');
+                } else {
+                    key.setAttribute('aria-pressed', 'false');
+                }
+                key.addEventListener('click', () => guessLetter(letter));
+                elements.keyboard.appendChild(key);
+            }
+            if (focusedKey) {
+                const focusedIndex = alphabet.indexOf(focusedKey);
+                const nextKey = [...elements.keyboard.querySelectorAll('.key')]
+                    .slice(focusedIndex + 1)
+                    .concat([...elements.keyboard.querySelectorAll('.key')].slice(0, focusedIndex + 1))
+                    .find(key => !key.disabled);
+                (nextKey || elements.newGame).focus({ preventScroll: true });
+            }
+        }
+
+        function updateProgress() {
+            elements.wrongCount.textContent = wrongGuesses;
+            elements.drawingDescription.textContent =
+                `${wrongGuesses} of ${maxWrongGuesses} incorrect guesses.`;
+            document.querySelectorAll('.person').forEach((part, index) => {
+                part.style.visibility = index < wrongGuesses ? 'visible' : 'hidden';
+            });
+        }
+
+        function finishGame(won) {
+            gameOver = true;
+            if (won) {
+                wins++;
+                elements.winsCount.textContent = wins;
+                elements.message.textContent = 'You got it! Great guessing!';
+                elements.message.dataset.result = 'win';
+            } else {
+                elements.message.textContent = `Out of guesses! The word was ${currentWord.word.toUpperCase()}.`;
+                elements.message.dataset.result = 'loss';
+                renderWord();
+            }
+            renderKeyboard();
+        }
+
+        function guessLetter(letter) {
+            if (gameOver || guessedLetters.has(letter) || !alphabet.includes(letter)) {
+                return;
+            }
+
+            guessedLetters.add(letter);
+            if (currentWord.word.includes(letter)) {
+                renderWord();
+                if ([...currentWord.word].filter(character => alphabet.includes(character))
+                    .every(character => guessedLetters.has(character))) {
+                    finishGame(true);
+                } else {
+                    elements.message.textContent = `Good guess: ${letter.toUpperCase()} is in the word.`;
+                }
+            } else {
+                wrongGuesses++;
+                updateProgress();
+                if (wrongGuesses === maxWrongGuesses) {
+                    finishGame(false);
+                } else {
+                    const remaining = maxWrongGuesses - wrongGuesses;
+                    elements.message.textContent =
+                        `No ${letter.toUpperCase()}. ${remaining} ${remaining === 1 ? 'guess' : 'guesses'} left.`;
+                }
+            }
+
+            renderKeyboard();
+        }
+
+        function startGame() {
+            currentWord = chooseWord();
+            previousWord = currentWord.word;
+            guessedLetters = new Set();
+            wrongGuesses = 0;
+            gameOver = false;
+            elements.category.textContent = currentWord.category;
+            elements.hint.textContent = currentWord.hint;
+            elements.message.textContent = 'Pick a letter to get started.';
+            elements.message.removeAttribute('data-result');
+            updateProgress();
+            renderWord();
+            renderKeyboard();
+        }
+
+        elements.newGame.addEventListener('click', startGame);
+        document.addEventListener('keydown', event => {
+            if (event.altKey || event.ctrlKey || event.metaKey || event.repeat) {
+                return;
+            }
+
+            const letter = event.key.toLowerCase();
+            if (alphabet.includes(letter)) {
+                event.preventDefault();
+                guessLetter(letter);
+            }
+        });
+
+        startGame();
+    </script>
+</body>
+</html>
